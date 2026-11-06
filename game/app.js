@@ -65,7 +65,7 @@ function today() { return addDays(dateStr(new Date()), dayOffset()); }
 function diffDays(a, b) { const p = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 86400000); }
 
 /* ---------- 저장 ---------- */
-const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {}, lost: 0, lostDay: {}, storySeen: false });
+const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {}, lost: 0, lostDay: {}, storySeen: false, exams: [] });
 let S = load();
 function load() {
   try {
@@ -379,6 +379,7 @@ function runRound(questions, opts) {
       if (opts.hearts) hearts--;
     }
     if (!opts.noRecord) {
+      if (ok) intro(qq.id);   // 배우기 전 단어도 맞히면 배운 단어가 되어 적립한다. 틀리면 기록과 감점이 없다.
       const key = ok ? earnKey(qq, w) : null;
       record(qq.id, ok, ok ? skillOf(qq, w) : null);
       res.won += ok ? reward(qq.id, key) : penalize(qq.id);
@@ -611,7 +612,7 @@ function showMatch(ids, onDone, onQuit, record_ = true) {
       if (a.dataset.id === b.dataset.id) {
         [a, b].forEach(x => { x.classList.add("done"); x.disabled = true; });
         beep(true); left_n--;
-        if (record_ && !missed.has(a.dataset.id)) { record(a.dataset.id, true, "meaning"); reward(a.dataset.id, "meaning"); save(); }
+        if (record_ && !missed.has(a.dataset.id)) { intro(a.dataset.id); record(a.dataset.id, true, "meaning"); reward(a.dataset.id, "meaning"); save(); }
         if (!left_n) { save(); const t = setTimeout(onDone, 500); addCleanup(() => clearTimeout(t)); }
       } else {
         [a, b].forEach(x => { x.classList.add("shake"); setTimeout(() => x.classList.remove("shake"), 320); });
@@ -774,7 +775,7 @@ function home() {
       </section>
       <section class="panel stack">
         <div class="row between">
-          <div><h2>자유 연습</h2><p class="mute small">배운 단어를 맞히면 적립되고, 틀리면 감점돼요.</p></div>
+          <div><h2>자유 연습</h2><p class="mute small">맞히면 적립돼요. 배운 단어를 틀리면 감점돼요.</p></div>
           <label class="row small">범위
             <select id="range">
               <option value="learned">배운 단어</option>
@@ -843,8 +844,17 @@ function startExam(pool) {
   const real = makeRealItems(base, 15 + Math.floor(Math.random() * 4));
   const blank = pick(base, 6 + Math.floor(Math.random() * 4)).map(w => ({ type: "blank", id: w.id }));
   const listen = pick(base.filter(canListen), 5).map(w => ({ type: "listen", id: w.id }));
-  intermission("실전 모의", `진짜 단어 찾기 ${real.length}문제, 빈칸 ${blank.length}문제, 듣고 쓰기 ${listen.length}문제를 힌트 없이 풀어요. DET 점수를 예측하는 시험은 아니에요.`, () =>
-    runRound([...real, ...blank, ...listen], { exam: true, onDone: r => showResult(r, "실전 모의 끝!", () => startExam(pool)) }));
+  const last = S.exams[S.exams.length - 1];
+  intermission("실전 모의", `진짜 단어 찾기 ${real.length}문제, 빈칸 ${blank.length}문제, 듣고 쓰기 ${listen.length}문제를 힌트 없이 풀어요. DET 점수를 예측하는 시험은 아니에요.${last ? ` 지난 기록: ${last.right}/${last.total}` : ""}`, () =>
+    runRound([...real, ...blank, ...listen], { exam: true, onDone: r => {
+      const pct = r.total ? Math.round(r.right / r.total * 100) : 0;
+      const best = Math.max(pct, ...S.exams.map(e => e.pct));
+      S.exams.push({ date: today(), right: r.right, total: r.total, pct, won: r.won });
+      if (S.exams.length > 50) S.exams.shift();
+      save();
+      r.note = `${S.exams.length}번째 기록을 저장했어요. 최고 기록 ${best}%`;
+      showResult(r, "실전 모의 끝!", () => startExam(pool));
+    } }));
 }
 function showResult(r, title, again) {
   const pct = r.total ? Math.round(r.right / r.total * 100) : 0;
@@ -940,6 +950,10 @@ function parentView() {
         <div class="row between"><span>현재 적립금</span><b>${fmtWon(moneyStats().balance)} / ${fmtWon(WON_GOAL)}</b></div>
         <div class="row between small mute"><span>적립 ${fmtWon(moneyStats().earned)}</span><span>감점 ${fmtWon(S.lost)}</span></div>
         <p class="small mute">게임 안의 숫자입니다. 실제로 지급할지와 지급 조건은 보호자가 정해 주세요.</p>
+      </div>
+      <div class="panel stack">
+        <h3>실전 모의 기록</h3>
+        ${S.exams.length ? S.exams.slice(-5).reverse().map(e => `<div class="row between small"><span>${esc(e.date)}</span><b>${e.right}/${e.total} (${e.pct}%)</b></div>`).join("") : `<p class="small mute">아직 기록이 없습니다.</p>`}
       </div>
       <p class="mute small">"외운 단어"는 뜻 맞히기, 철자 판별, 직접 입력을 서로 다른 날에 모두 통과한 단어입니다. 밀린 복습이 ${REVIEW_CAP}개를 넘으면 새 단어 수가 자동으로 줄어듭니다.</p>
       <div class="panel stack">
