@@ -198,13 +198,27 @@ function hasEnglishVoice() {
 function speak(text) {
   if (!("speechSynthesis" in window)) return;
   try {
-    speechSynthesis.cancel();
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    speechSynthesis.resume();   // 일시 정지 상태로 멈춘 브라우저를 깨운다
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US"; u.rate = .9;
     const v = speechSynthesis.getVoices().find(x => /^en-US/i.test(x.lang)) || speechSynthesis.getVoices().find(x => /^en/i.test(x.lang));
     if (v) u.voice = v;
+    // 페이지를 열자마자 나는 자동 재생 거부(not-allowed)와 다음 발음으로 넘어갈 때의 중단은 오류가 아니다
+    u.onerror = e => { if (!["canceled", "interrupted", "not-allowed"].includes(e.error)) speechFailed(); };
+    speak.current = u;          // 재생 중 메모리에서 지워져 소리가 끊기는 것을 막는다
     speechSynthesis.speak(u);
-  } catch (e) { /* 음성 실패 시 화면 글자로 학습 */ }
+  } catch (e) { speechFailed(); }
+}
+function speechFailed() {
+  if (document.getElementById("speechNotice")) return;
+  const n = document.createElement("div");
+  n.id = "speechNotice";
+  n.className = "speech-notice";
+  n.setAttribute("role", "alert");
+  n.textContent = "발음을 재생하지 못했어요. 스피커나 이어폰이 연결되어 있는지 확인해 주세요. 그래도 안 되면 Edge나 Chrome으로 열어 보세요.";
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 6000);
 }
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
 
