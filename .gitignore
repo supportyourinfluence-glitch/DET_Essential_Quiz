@@ -3,8 +3,12 @@
 !game/images/*.jpg
 *.jpeg
 *.png
+!game/icons/*.png
 
 # 로컬 도구 설정
 .claude/
 __pycache__/
 *.pyc
+
+# 설치 프로그램 빌드 결과
+dist/

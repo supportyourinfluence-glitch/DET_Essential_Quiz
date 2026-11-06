@@ -16,7 +16,9 @@ Duolingo와 관련 없는 개인 학습 프로젝트입니다.
 
 ## 실행
 
-`game/index.html`을 브라우저로 엽니다. 설치할 것은 없습니다.
+- **브라우저:** `game/index.html`을 엽니다.
+- **모바일과 PC 앱:** 사이트 첫 화면의 **앱으로 쓰기**에서 설치하고, **인터넷 없이 쓰기 준비**를 누릅니다. iPhone은 Safari의 **공유 → 홈 화면에 추가**를 씁니다.
+- **PC 설치 프로그램:** Inno Setup으로 `tools/installer/word-planet.iss`를 빌드하면 `dist/`에 설치 파일이 만들어집니다.
 
 ## 폴더
 

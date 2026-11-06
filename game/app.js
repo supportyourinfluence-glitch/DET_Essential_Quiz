@@ -797,6 +797,7 @@ function home() {
           ${gameBtn("exam", "flag", "실전 모의", "힌트 없이 시험처럼")}
         </div>
       </section>
+      ${appPanelHtml()}
       <div class="row between">
         <button class="btn ghost" id="sound">${S.settings.sound ? icon("bell") + " 효과음 켜짐" : icon("bellOff") + " 효과음 꺼짐"}</button>
         <button class="btn" id="parent">보호자 화면</button>
@@ -813,6 +814,7 @@ function home() {
   $$(".game-btn").forEach(b => { b.onclick = () => startFree(b.dataset.game, $("#range").value); });
   $("#sound").onclick = () => { S.settings.sound = !S.settings.sound; save(); home(); };
   $("#parent").onclick = parentView;
+  appPanelWire();
 }
 const gameBtn = (id, ic, name, desc) => `<button class="game-btn" data-game="${id}"><span class="icon" aria-hidden="true">${icon(ic)}</span><strong>${name}</strong><span class="mute">${desc}</span></button>`;
 

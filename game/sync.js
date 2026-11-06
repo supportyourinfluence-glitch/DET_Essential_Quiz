@@ -124,6 +124,7 @@ function syncSoon() {
 function syncStart() {
   if (!syncEnabled()) return;
   syncNow();
+  window.addEventListener("online", syncNow);   // 인터넷이 돌아오면 밀린 기록을 합친다
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" || syncTimer) syncNow(); });
 }
 function syncDisconnect() { syncStore(SYNC_CODE_KEY, null); syncStatus = ""; }
