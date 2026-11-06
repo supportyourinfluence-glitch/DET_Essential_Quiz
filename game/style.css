@@ -75,16 +75,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .mission { background: var(--brand-tint); border-color: var(--brand); }
 .mission .counts { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 14px; }
 .mission b { color: var(--brand-lip); font-size: 20px; }
-.planets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.planet { background: var(--bg); border: 2px solid transparent; border-radius: 14px; padding: 10px 4px; text-align: center; color: var(--ink); }
-.planet:hover { border-color: var(--line); background: var(--soft); }
 .orb {
   width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 6px; position: relative;
   background: radial-gradient(circle at 32% 30%, #fff 0, var(--c) 42%, color-mix(in srgb, var(--c) 70%, #333) 100%);
   filter: saturate(calc(.45 + var(--p) * .55)) opacity(calc(.7 + var(--p) * .3));
 }
 .orb.done::after { content: "★"; position: absolute; right: -4px; top: -6px; color: var(--sun); font-size: 20px; }
-.planet .pct { font-size: 13px; color: var(--mute); }
 .games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .game-btn { background: var(--bg); border: 2px solid var(--line); border-bottom-width: 5px; border-radius: 14px; padding: 12px; text-align: left; color: var(--ink); min-height: 96px; }
 .game-btn:hover { background: var(--soft); }
@@ -92,6 +88,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .game-btn .ico { width: 28px; height: 28px; }
 .game-btn strong { display: block; }
 .game-btn span.mute { font-size: 13px; line-height: 1.35; display: block; }
+
+/* 스토리 */
+.hero { display: grid; gap: 10px; margin-bottom: 14px; }
+.brand { color: var(--brand); }
+.hero-story { font-size: 17px; }
+.wallet { display: grid; gap: 6px; padding: 14px 16px; border-radius: var(--r); background: var(--sun-tint); border: 2px solid var(--sun); }
+.wallet-now { font-size: 30px; font-weight: 800; color: #8a5a00; line-height: 1.1; }
+.wallet-bar { height: 14px; background: #fff; }
+.wallet-bar > i { background: var(--sun); }
+.route { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; position: relative; }
+.route::before { content: ""; position: absolute; left: 38px; top: 20px; bottom: 20px; border-left: 3px dashed var(--line); }
+.stop { position: relative; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 2px solid var(--line); border-radius: var(--r); padding: 8px 10px 8px 0; }
+.stop.now { border-color: var(--brand); background: var(--brand-tint); }
+.stop-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: none; color: var(--ink); text-align: left; padding: 2px 4px 2px 10px; border-radius: 12px; }
+.stop-main:hover { background: rgba(0,0,0,.04); }
+.stop-main .orb { margin: 0; flex: none; }
+.stop-text { display: grid; gap: 1px; }
+.stop-now { color: var(--brand-lip); }
+.stop-flash { flex: none; text-decoration: none; display: inline-flex; align-items: center; font-size: 14px; padding: 6px 10px; min-height: 42px; }
+.story p { line-height: 1.65; }
+.rules { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--soft); text-align: left; }
+.story-note { padding: 10px 14px; border-radius: 12px; background: var(--brand-tint); color: var(--brand-lip); font-weight: 600; }
+.money-toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 20; padding: 6px 16px; border-radius: 99px; font-weight: 800; font-size: 18px; color: #fff; pointer-events: none; animation: money-up 1.2s ease-out forwards; }
+.money-toast.plus { background: var(--sun); color: #3a2800; }
+.money-toast.minus { background: var(--coral); }
+@keyframes money-up { 0% { opacity: 0; margin-top: 12px; } 15% { opacity: 1; margin-top: 0; } 75% { opacity: 1; } 100% { opacity: 0; margin-top: -10px; } }
 
 /* 문제 */
 .play-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -150,9 +172,6 @@ mark { background: var(--sun-tint); color: #8a5a00; padding: 0 4px; border-radiu
 @keyframes shake { 25% { transform: translateX(-5px);} 75% { transform: translateX(5px);} }
 
 /* 플래시카드 */
-.flash-days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.flash-day { display: grid; gap: 2px; justify-items: center; padding: 10px 4px; border-radius: 12px; background: var(--bg); border: 2px solid var(--line); border-bottom-width: 5px; color: var(--ink); text-decoration: none; }
-.flash-day:hover { background: var(--soft); }
 .flash-link { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .flash-sub { text-align: center; margin: -6px 0 10px; }
 .flash { display: grid; gap: 12px; padding: 14px; max-width: 620px; margin: 0 auto; }
@@ -214,7 +233,6 @@ input[type=date], input[type=number], input[type=search], select { background: v
 .notice { background: var(--blue-tint); color: var(--blue-lip); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
 @media (max-width: 620px) {
   h1 { font-size: 23px; }
-  .planets { gap: 4px; }
   .orb { width: 42px; height: 42px; }
   .games { grid-template-columns: 1fr 1fr; }
   .choices { grid-template-columns: 1fr; }
@@ -228,5 +246,6 @@ input[type=date], input[type=number], input[type=search], select { background: v
 }
 @media (prefers-reduced-motion: reduce) {
   .tile.shake, .tcell.bad { animation: none; }
+  .money-toast { animation-duration: .01s; animation-delay: 1s; }
   .progress > i { transition: none; }
 }

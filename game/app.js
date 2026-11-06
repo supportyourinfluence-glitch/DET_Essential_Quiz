@@ -15,6 +15,20 @@ const BOOK_NOTES = {
   examine: "책 표기는 '관찰하다'입니다. 영어사전의 대표 뜻은 '조사하다, 검사하다'입니다.",
 };
 
+const STORY = [
+  { title: "집을 잃은 마을", intro: "첫 번째 행성의 주민(resident)들이 집에서 쫓겨났어요. 낡은 집을 고치려면(repair) 단어부터 되찾아야 해요.", clear: "주민들이 집으로 돌아갔어요. 마을 협회(association)가 다음 행성 지도를 건네주었어요." },
+  { title: "식량이 끊긴 항구", intro: "폭풍(storm)이 항구를 덮쳐 식량이 떨어졌어요(food shortage). 긴 항해(voyage)에 나설 배가 단어를 기다려요.", clear: "배가 무사히 떠났어요! 펭귄(penguin) 선원들이 손을 흔들어요." },
+  { title: "화산재 속의 비행", intro: "화산이 터져(volcanic eruption) 재 구름(ash cloud)이 하늘을 막았어요. 항공기(aircraft)를 띄우려면 단어가 필요해요.", clear: "재 구름이 걷혔어요. 비행대(fleet)가 우주선을 다음 행성까지 호위해 줘요." },
+  { title: "아픈 사람들의 병원", intro: "병원의 환자(patient)들이 병 이름을 알 수 없어요. 의사가 진단하려면(diagnose) 빼앗긴 단어가 필요해요.", clear: "치료 계획(treatment plan)이 완성됐어요. 병원에 웃음이 돌아왔어요." },
+  { title: "끊어진 다리", intro: "두 마을을 잇던(link) 현수교(suspension bridge)가 끊겼어요. 다리를 다시 놓아 축제를 열어야 해요.", clear: "다리가 이어졌어요! 깃발(flag)을 들고 행진하며(march) 함께 기념해요(celebrate)." },
+  { title: "별을 잃은 천문대", intro: "천문학자(astronomer)의 망원경에서 혜성(comet)이 사라졌어요. 관측소(observatory)가 단어를 찾고 있어요.", clear: "밤하늘에 혜성이 또렷이(clearly) 보여요. 다음 항로가 환하게 열렸어요." },
+  { title: "불 꺼진 작업장", intro: "회로(circuit)가 끊겨 작업장(workshop)이 멈췄어요. 전기 기사(electrician)와 함께 고쳐요(fix).", clear: "불이 켜졌어요! 기계가 우주선 연료를 가득 채워 주었어요." },
+  { title: "시들어 가는 도시", intro: "도시(urban)의 녹지 공간(green space)이 말라 가고 있어요. 해충(insect pest)을 막고 식물원을 살려요.", clear: "연못(pond)에 물이 차고 꽃이 피었어요. 토종(native) 새들이 돌아왔어요." },
+  { title: "쓰레기 바다", intro: "플라스틱 폐기물(plastic waste)이 행성을 뒤덮었어요. 환경(environment)을 지키려면 단어의 힘이 필요해요.", clear: "함께 나무를 심었어요(plant trees). 마지막 행성의 위치가 드러났어요!" },
+  { title: "단어 도둑의 행방", intro: "드디어 단어 도둑의 행방(whereabouts)을 찾았어요. 도둑은 자만하며(conceited) 마지막 단어를 움켜쥐고 있어요.", clear: "도둑이 후회하며(remorse) 단어를 모두 돌려주었어요. 10개 행성이 다시 빛나요!" },
+];
+const WON_STEP = 18, WON_BOSS = 300, WON_GOAL = 30000;   // 18원 x 단어 500개 x 3단계 + 300원 x 보스 10개 = 30,000원
+
 const $app = document.getElementById("app");
 const byId = Object.fromEntries(WORDS.map(w => [w.id, w]));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -51,7 +65,7 @@ function today() { return addDays(dateStr(new Date()), dayOffset()); }
 function diffDays(a, b) { const p = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 86400000); }
 
 /* ---------- 저장 ---------- */
-const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, stars: 0, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {} });
+const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {}, lost: 0, lostDay: {}, storySeen: false });
 let S = load();
 function load() {
   try {
@@ -155,10 +169,11 @@ function distractors(w, n) {
   return out;
 }
 function nextTypeFor(w) {
-  const s = st(w.id) || { skill: {} };
-  if (!s.skill.meaning) return "meaning";
-  if (!s.skill.recog) return isSingle(w) ? "real" : "blank";
-  if (!s.skill.type) return canListen(w) ? "listen" : "blank";
+  const s = st(w.id) || { skill: {} }, earn = s.earn || {};
+  const need = k => !s.skill[k] || !earn[k];
+  if (need("meaning")) return "meaning";
+  if (need("recog")) return isSingle(w) ? "real" : "blank";
+  if (need("type")) return canListen(w) ? "listen" : "blank";
   return pick(canListen(w) ? ["blank", "listen", "meaning"] : ["blank", "meaning"], 1)[0];
 }
 function makeRealItems(words, n) {
@@ -173,6 +188,51 @@ function skillOf(q, w) {
   if (isSingle(w)) return "type";
   const s = st(w.id);
   return s && !s.skill.recog ? "recog" : "type";   // 표현 항목은 빈칸이 철자 판별을 대신한다
+}
+
+/* ---------- 적립금 ----------
+   퀴즈를 처음 맞힌 단계마다 적립하고, 틀리면 감점한다. 같은 단어의 감점은 하루 한 번이다.
+   플래시카드는 스스로 평가하는 연습이라 돈이 움직이지 않는다. */
+function earnKey(q, w) {
+  if (q.type === "meaning") return "meaning";
+  if (q.type === "real") return "recog";
+  if (q.type === "listen" || isSingle(w)) return "type";
+  const s = st(w.id);
+  return s && s.earn && s.earn.recog ? "type" : "recog";
+}
+function moneyStats(day) {
+  const list = day ? WORDS.filter(w => w.day === day) : WORDS;
+  const steps = list.reduce((n, w) => { const s = st(w.id); return n + (s && s.earn ? Object.keys(s.earn).length : 0); }, 0);
+  const bosses = day ? (S.boss[day] ? 1 : 0) : Object.values(S.boss).filter(Boolean).length;
+  const earned = steps * WON_STEP + bosses * WON_BOSS;
+  return { earned, balance: earned - (day ? 0 : S.lost), max: list.length * 3 * WON_STEP + (day ? 1 : 10) * WON_BOSS };
+}
+const fmtWon = n => n.toLocaleString("ko-KR") + "원";
+function reward(id, key) {
+  const s = st(id);
+  if (!s) return 0;
+  s.earn = s.earn || {};
+  if (s.earn[key]) return 0;
+  s.earn[key] = 1;
+  moneyToast(WON_STEP);
+  return WON_STEP;
+}
+function penalize(id) {
+  if (!st(id) || S.lostDay[id] === today()) return 0;
+  S.lostDay[id] = today();
+  const amount = Math.min(WON_STEP, moneyStats().balance);
+  if (!amount) return 0;
+  S.lost += amount;
+  moneyToast(-amount);
+  return -amount;
+}
+function moneyToast(n) {
+  const t = document.createElement("div");
+  t.className = "money-toast " + (n > 0 ? "plus" : "minus");
+  t.setAttribute("aria-hidden", "true");
+  t.textContent = (n > 0 ? "+" : "-") + fmtWon(Math.abs(n));
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1200);
 }
 
 /* ---------- 소리 ---------- */
@@ -284,12 +344,12 @@ function startTimer(sec, onEnd) {
    opts: title, exam(힌트와 해석 없음), hearts, requeue(틀리면 다시), noRecord, onDone(결과) */
 function runRound(questions, opts) {
   const q = questions.slice();
-  const res = { total: 0, right: 0, wrong: [], stars: 0 };
+  const res = { total: 0, right: 0, wrong: [], won: 0 };
   let hearts = opts.hearts || 0, i = 0;
   const initial = q.length;
 
   function finish(lost) {
-    S.stars += res.stars; save();
+    save();
     opts.onDone({ ...res, lost: !!lost });
   }
   function next() {
@@ -306,20 +366,24 @@ function runRound(questions, opts) {
     </div>`;
   }
   function wireQuit() {
-    $("#quit").onclick = () => { if (confirm("그만할까요? 지금까지 푼 결과는 저장돼요.")) { S.stars += res.stars; save(); (opts.onQuit || home)(); } };
+    $("#quit").onclick = () => { if (confirm("그만할까요? 지금까지 푼 결과는 저장돼요.")) { save(); (opts.onQuit || home)(); } };
   }
   function answered(qq, ok, ms) {
     const w = byId[qq.id];
     res.total++;
     if (ok) {
       res.right++;
-      res.stars += 1 + (ms < 3000 && qq.type !== "blank" ? 1 : 0);
     } else {
       if (!res.wrong.includes(qq.id)) res.wrong.push(qq.id);
       if (opts.requeue) q.push({ ...qq });
       if (opts.hearts) hearts--;
     }
-    if (!opts.noRecord) record(qq.id, ok, ok ? skillOf(qq, w) : null);
+    if (!opts.noRecord) {
+      const key = ok ? earnKey(qq, w) : null;
+      record(qq.id, ok, ok ? skillOf(qq, w) : null);
+      res.won += ok ? reward(qq.id, key) : penalize(qq.id);
+      save();
+    }
     beep(ok);
   }
   function afterFeedback(ok, delay) {
@@ -546,15 +610,15 @@ function showMatch(ids, onDone, onQuit, record_ = true) {
       const a = sel; sel = null; a.classList.remove("sel");
       if (a.dataset.id === b.dataset.id) {
         [a, b].forEach(x => { x.classList.add("done"); x.disabled = true; });
-        beep(true); S.stars++; left_n--;
-        if (record_ && !missed.has(a.dataset.id)) record(a.dataset.id, true, "meaning");
+        beep(true); left_n--;
+        if (record_ && !missed.has(a.dataset.id)) { record(a.dataset.id, true, "meaning"); reward(a.dataset.id, "meaning"); save(); }
         if (!left_n) { save(); const t = setTimeout(onDone, 500); addCleanup(() => clearTimeout(t)); }
       } else {
         [a, b].forEach(x => { x.classList.add("shake"); setTimeout(() => x.classList.remove("shake"), 320); });
         beep(false);
         const wid = a.dataset.side === "w" ? a.dataset.id : b.dataset.id;
         missed.add(wid);
-        if (record_) record(wid, false, null);
+        if (record_) { record(wid, false, null); penalize(wid); save(); }
       }
     };
   });
@@ -572,7 +636,7 @@ function buildMission() {
     stages.push({ k: "blank", ids: pick(fresh, 10).map(w => w.id) });
   }
   stages.push({ k: "retry" });
-  S.mission = { date: today(), stages, at: 0, wrong: [], gained: 0 };
+  S.mission = { date: today(), stages, at: 0, wrong: [], startWon: moneyStats().balance };
   save();
 }
 function missionDone() { return S.mission && S.mission.date === today() && S.mission.at >= S.mission.stages.length; }
@@ -583,7 +647,6 @@ function runMission() {
   const stage = m.stages[m.at];
   const advance = r => {
     if (r && r.wrong) r.wrong.forEach(id => { if (!m.wrong.includes(id)) m.wrong.push(id); });
-    if (r) m.gained += r.stars || 0;
     m.at++; save();
     if (m.at >= m.stages.length) return completeMission();
     runMission();
@@ -619,16 +682,15 @@ function completeMission() {
   if (S.lastDay !== t) {
     S.streak = S.lastDay === addDays(t, -1) ? S.streak + 1 : 1;
     S.lastDay = t;
-    S.stars += 10;
   }
   save();
   const m = S.mission;
   render(`<div class="panel result stack">
       <div class="big-star">${icon("rocket")}</div>
-      <h1>오늘의 미션 완료!</h1>
-      <p>연속 학습 <b>${S.streak}일</b> · 오늘 얻은 별 <b>${m.gained + 10}개</b></p>
+      <h1>오늘의 탐험 완료!</h1>
+      <p>연속 학습 <b>${S.streak}일</b> · 오늘의 탐험 <b>${moneyStats().balance >= (m.startWon || 0) ? "+" : ""}${fmtWon(moneyStats().balance - (m.startWon || 0))}</b></p>
       <p class="mute">외운 단어 ${WORDS.filter(isMastered).length} / ${WORDS.length}</p>
-      <button class="btn primary big" id="home">행성 지도로</button>
+      <button class="btn primary big" id="home">탐험 지도로</button>
     </div>`);
   $("#home").onclick = home; $("#home").focus();
 }
@@ -639,22 +701,50 @@ function planetStats(day) {
   const mastered = list.filter(isMastered).length, seen = list.filter(w => st(w.id)).length;
   return { total: list.length, mastered, seen, ratio: (mastered + (seen - mastered) * .35) / list.length };
 }
+function prologue() {
+  render(`<div class="panel story stack">
+      <div class="big-star">${icon("rocket")}</div>
+      <h1>단어 도둑을 찾아서</h1>
+      <p>나는 초등학교 6학년. 어느 날 밤, 책상 위 단어장이 빛나더니 작은 우주선이 창밖에 내려앉았어요.</p>
+      <p>"단어 도둑이 10개 행성에서 영어 단어 500개를 훔쳐 갔어. 네가 되찾아 줘!"</p>
+      <div class="rules">
+        <h3>탐험 규칙</h3>
+        <p>퀴즈를 처음 맞힌 단계마다 <b>+${WON_STEP}원</b>, 보스를 격파하면 <b>+${WON_BOSS}원</b></p>
+        <p>틀리면 <b>-${WON_STEP}원</b> (같은 단어는 하루 한 번만 깎여요)</p>
+        <p>플래시카드는 돈이 움직이지 않는 연습이에요. 모르면 솔직하게 <b>몰랐어요</b>를 눌러요.</p>
+        <p>하나도 틀리지 않고 모두 되찾으면 <b>${fmtWon(WON_GOAL)}</b>!</p>
+      </div>
+      <button class="btn primary big" id="go">탐험 떠나기 (Enter)</button>
+    </div>`);
+  $("#go").onclick = () => { S.storySeen = true; save(); home(); };
+  $("#go").focus();
+}
 function home() {
+  if (!S.storySeen) return prologue();
   const dueN = dueWords().length, newN = dailyNewCount(), mastered = WORDS.filter(isMastered).length;
   const active = missionActive(), done = missionDone();
   const dDay = S.settings.examDate ? diffDays(today(), S.settings.examDate) : null;
-  render(`<header class="top">
-      <div><h1><span style="color:var(--brand)">${icon("planet")}</span> 단어 행성 탐험대</h1><p class="mute small">DET 단어 500개를 외워 10개 행성을 밝혀요</p></div>
-      <div class="chips">
-        <span class="chip">${icon("star")} ${S.stars}</span>
-        <span class="chip">${icon("flame")} ${S.streak}일</span>
-        ${dDay !== null ? `<span class="chip">${dDay > 0 ? "D-" + dDay : dDay === 0 ? "D-Day" : "시험 종료"}</span>` : ""}
+  const money = moneyStats(), cur = STORY.findIndex((_, i) => !S.boss[i + 1]);
+  const allClear = cur === -1;
+  render(`<header class="hero">
+      <div class="row between">
+        <h1><span class="brand">${icon("planet")}</span> 단어 행성 탐험대</h1>
+        <div class="chips">
+          <span class="chip">${icon("flame")} ${S.streak}일</span>
+          ${dDay !== null ? `<span class="chip">${dDay > 0 ? "D-" + dDay : dDay === 0 ? "D-Day" : "시험 종료"}</span>` : ""}
+        </div>
+      </div>
+      <p class="hero-story">${allClear ? "10개 행성을 모두 되찾았어요. 시험장에서 이 단어들이 나를 도와줄 거예요!" : `지금 탐험 중: <b>DAY ${cur + 1} ${esc(STORY[cur].title)}</b>`}</p>
+      <div class="wallet" role="img" aria-label="적립금 ${fmtWon(money.balance)}, 목표 ${fmtWon(WON_GOAL)}">
+        <div class="row between"><b class="wallet-now">${fmtWon(money.balance)}</b><span class="mute small">목표 ${fmtWon(WON_GOAL)}</span></div>
+        <div class="bar wallet-bar"><i style="width:${money.balance / WON_GOAL * 100}%"></i></div>
+        <p class="mute small">퀴즈 단계 +${WON_STEP}원 · 보스 격파 +${WON_BOSS}원 · 틀리면 -${WON_STEP}원${S.lost ? ` · 지금까지 감점 ${fmtWon(S.lost)}` : ""}</p>
       </div>
     </header>
     <div class="stack">
       ${saveFailed ? `<p class="notice">이 브라우저에서 기록을 저장하지 못하고 있어요. 다른 브라우저로 열거나 보호자 화면에서 백업하세요.</p>` : ""}
       <section class="panel mission">
-        <h2>${done ? "오늘의 미션을 끝냈어요!" : active ? "미션을 이어서 해요" : "오늘의 미션"}</h2>
+        <h2>${done ? "오늘의 탐험을 끝냈어요!" : active ? "탐험을 이어서 해요" : "오늘의 탐험"}</h2>
         <div class="counts">
           <span>복습 <b>${Math.min(dueN, REVIEW_CAP)}</b>개</span>
           <span>새 단어 <b>${done ? 0 : newN}</b>개</span>
@@ -664,25 +754,27 @@ function home() {
           ? (dueN ? `<button class="btn primary big" id="extra">남은 복습 ${dueN}개 풀기</button>` : `<p class="mute">내일 다시 만나요. 아래 게임은 언제든 할 수 있어요.</p>`)
           : `<button class="btn primary big" id="mission">${active ? "이어서 하기" : "탐험 시작"} (Enter)</button>`}
       </section>
-      <section class="panel stack">
-        <div><h2>플래시카드</h2><p class="mute small">DAY별 50장을 그림으로 빠르게 익혀요</p></div>
-        <div class="flash-days">${PLANET_NAMES.map((_, i) => {
-          const d = i + 1, f = S.flash[d], n = f ? f.known.length : 0;
-          return `<a class="flash-day" href="#flash${d}"><strong>DAY ${d}</strong><span class="small mute">${n}/50</span></a>`;
-        }).join("")}</div>
-      </section>
-      <section class="panel stack">
-        <h2>행성 지도</h2>
-        <div class="planets">${PLANET_NAMES.map((name, i) => {
-          const d = i + 1, p = planetStats(d);
-          return `<button class="planet" data-day="${d}" aria-label="DAY ${d} ${name} 행성, ${p.mastered}개 외움">
-            <div class="orb ${S.boss[d] ? "done" : ""}" style="--c:${PLANET_COLORS[i]};--p:${p.ratio.toFixed(2)}"></div>
-            <strong class="small">DAY ${d}</strong><div class="pct">${p.mastered}/${p.total}</div></button>`;
-        }).join("")}</div>
+      <section class="stack" aria-label="탐험 지도">
+        <h2>탐험 지도</h2>
+        <ol class="route">${STORY.map((ch, i) => {
+          const d = i + 1, p = planetStats(d), m = moneyStats(d), f = S.flash[d];
+          const state = S.boss[d] ? "clear" : i === cur ? "now" : "";
+          return `<li class="stop ${state}">
+            <button class="stop-main" data-day="${d}" aria-label="DAY ${d} ${esc(ch.title)} 열기">
+              <div class="orb ${S.boss[d] ? "done" : ""}" style="--c:${PLANET_COLORS[i]};--p:${p.ratio.toFixed(2)}"></div>
+              <span class="grow stop-text">
+                <span class="small mute">DAY ${d} · ${PLANET_NAMES[i]} 행성${state === "now" ? ' · <b class="stop-now">지금 여기</b>' : ""}${state === "clear" ? " · 되찾음" : ""}</span>
+                <strong>${esc(ch.title)}</strong>
+                <span class="small mute">${fmtWon(m.earned)} / ${fmtWon(m.max)} · 외운 단어 ${p.mastered}/${p.total}</span>
+              </span>
+            </button>
+            <a class="btn stop-flash" href="#flash${d}">카드 ${f ? f.known.length : 0}/50</a>
+          </li>`;
+        }).join("")}</ol>
       </section>
       <section class="panel stack">
         <div class="row between">
-          <h2>자유 연습</h2>
+          <div><h2>자유 연습</h2><p class="mute small">배운 단어를 맞히면 적립되고, 틀리면 감점돼요.</p></div>
           <label class="row small">범위
             <select id="range">
               <option value="learned">배운 단어</option>
@@ -712,7 +804,7 @@ function home() {
     const ids = reviewOrder().map(w => w.id);
     runRound(ids.map(id => ({ type: nextTypeFor(byId[id]), id })).map(q => q.type === "real" ? { ...q, fake: Math.random() < .5 } : q), { onDone: r => showResult(r, "복습 완료!") });
   };
-  $$(".planet").forEach(b => { b.onclick = () => planetView(Number(b.dataset.day)); });
+  $$(".stop-main").forEach(b => { b.onclick = () => planetView(Number(b.dataset.day)); });
   $$(".game-btn").forEach(b => { b.onclick = () => startFree(b.dataset.game, $("#range").value); });
   $("#sound").onclick = () => { S.settings.sound = !S.settings.sound; save(); home(); };
   $("#parent").onclick = parentView;
@@ -734,8 +826,8 @@ function startFree(game, range) {
   const done = r => showResult(r, "연습 완료!", () => startFree(game, range));
   if (game === "meaning") runRound(pick(pool, 15).map(w => ({ type: "meaning", id: w.id })), { onDone: done });
   else if (game === "match") {
-    const ids = pick(pool, 5).map(w => w.id);
-    showMatch(ids, () => showResult({ total: ids.length, right: ids.length, wrong: [], stars: ids.length }, "짝 맞추기 완료!", () => startFree(game, range)), home);
+    const ids = pick(pool, 5).map(w => w.id), before = moneyStats().balance;
+    showMatch(ids, () => showResult({ total: ids.length, right: ids.length, wrong: [], won: moneyStats().balance - before }, "짝 맞추기 완료!", () => startFree(game, range)), home);
   }
   else if (game === "real") {
     const items = makeRealItems(pool, 15 + Math.floor(Math.random() * 4));
@@ -759,11 +851,12 @@ function showResult(r, title, again) {
   render(`<div class="panel result stack">
       <h1>${esc(title)}</h1>
       <div class="score">${r.right} / ${r.total}</div>
-      <p>정답률 ${pct}% · 얻은 별 ${r.stars}개</p>
+      <p>정답률 ${pct}% · 이번 변동 <b>${r.won > 0 ? "+" : ""}${fmtWon(r.won)}</b> · 적립금 <b>${fmtWon(moneyStats().balance)}</b></p>
+      ${r.note ? `<p class="story-note">${esc(r.note)}</p>` : ""}
       ${r.wrong.length ? `<div style="text-align:left"><h3>다시 볼 단어</h3>${r.wrong.map(id => wordRow(byId[id])).join("")}</div>` : `<p>모두 맞혔어요!</p>`}
       <div class="row" style="justify-content:center">
         ${again ? `<button class="btn" id="again">한 번 더</button>` : ""}
-        <button class="btn primary" id="home">행성 지도로</button>
+        <button class="btn primary" id="home">탐험 지도로</button>
       </div>
     </div>`);
   if (again) $("#again").onclick = again;
@@ -785,14 +878,20 @@ function statusBadge(w) {
 const wordRow = w => `<button class="wordrow" data-say="${w.id}"><span class="mute small">${String(w.no).padStart(3, "0")}</span><span class="en"><b>${esc(w.w)}</b></span><span class="small">${esc(w.m)}</span>${statusBadge(w)}</button>`;
 function wireRows() { $$(".wordrow").forEach(b => { b.onclick = () => speak(spoken(byId[b.dataset.say])); }); }
 function planetView(day) {
-  const list = WORDS.filter(w => w.day === day), p = planetStats(day);
+  const list = WORDS.filter(w => w.day === day), p = planetStats(day), m = moneyStats(day);
   const ready = list.every(w => st(w.id));
   render(`<div class="play-top"><button class="btn ghost" id="back" aria-label="뒤로">←</button><h2 class="grow">DAY ${day} · ${PLANET_NAMES[day - 1]} 행성</h2><span class="chip">${p.mastered}/${p.total} 외움</span></div>
     <div class="stack">
+      <div class="panel story stack">
+        <h3>${esc(STORY[day - 1].title)}</h3>
+        <p>${esc(S.boss[day] ? STORY[day - 1].clear : STORY[day - 1].intro)}</p>
+        <div class="row between small"><span>이 행성의 보상</span><b>${fmtWon(m.earned)} / ${fmtWon(m.max)}</b></div>
+        <div class="bar"><i style="width:${m.earned / m.max * 100}%"></i></div>
+      </div>
       <a class="btn primary big flash-link" href="#flash${day}">플래시카드 50장으로 익히기</a>
       <div class="panel stack">
         <div class="row between">
-          <div class="grow"><h3>보스전${S.boss[day] ? "★ 클리어" : ""}</h3><p class="mute small">${ready ? "20문제, 하트 3개. 져도 벌칙은 없어요." : `이 행성의 단어를 모두 배우면 열려요. (${p.seen}/${p.total})`}</p></div>
+          <div class="grow"><h3>보스전${S.boss[day] ? "★ 클리어" : ""}</h3><p class="mute small">${ready ? `20문제, 하트 3개. 처음 격파하면 +${WON_BOSS}원. 틀린 문제는 감점돼요.` : `이 행성의 단어를 모두 배우면 열려요. (${p.seen}/${p.total})`}</p></div>
           <button class="btn primary" id="boss" ${ready ? "" : "disabled"}>도전</button>
         </div>
       </div>
@@ -813,8 +912,11 @@ function bossBattle(day) {
     hearts: 3,
     onQuit: () => planetView(day),
     onDone: r => {
-      if (!r.lost) { S.boss[day] = true; S.stars += 20; save(); }
-      showResult(r, r.lost ? "아쉬워요! 틀린 단어를 보고 다시 도전해요" : "보스 격파! 별 20개 획득", () => bossBattle(day));
+      const first = !r.lost && !S.boss[day];
+      if (!r.lost) { S.boss[day] = true; save(); }
+      if (first) { moneyToast(WON_BOSS); r.won += WON_BOSS; }
+      if (!r.lost) r.note = day === 10 && first ? STORY[9].clear + " 탐험 완료!" : STORY[day - 1].clear;
+      showResult(r, r.lost ? "아쉬워요! 틀린 단어를 보고 다시 도전해요" : first ? `보스 격파! +${WON_BOSS}원` : "보스 다시 격파!", () => bossBattle(day));
     },
   });
 }
@@ -832,6 +934,12 @@ function parentView() {
         <div><b>${seen}</b>배운 단어</div>
         <div><b>${ans ? Math.round(cor / ans * 100) : 0}%</b>전체 정답률</div>
         <div><b>${Object.keys(S.log).length}</b>학습한 날</div>
+      </div>
+      <div class="panel stack">
+        <h3>탐험 적립금</h3>
+        <div class="row between"><span>현재 적립금</span><b>${fmtWon(moneyStats().balance)} / ${fmtWon(WON_GOAL)}</b></div>
+        <div class="row between small mute"><span>적립 ${fmtWon(moneyStats().earned)}</span><span>감점 ${fmtWon(S.lost)}</span></div>
+        <p class="small mute">게임 안의 숫자입니다. 실제로 지급할지와 지급 조건은 보호자가 정해 주세요.</p>
       </div>
       <p class="mute small">"외운 단어"는 뜻 맞히기, 철자 판별, 직접 입력을 서로 다른 날에 모두 통과한 단어입니다. 밀린 복습이 ${REVIEW_CAP}개를 넘으면 새 단어 수가 자동으로 줄어듭니다.</p>
       <div class="panel stack">
