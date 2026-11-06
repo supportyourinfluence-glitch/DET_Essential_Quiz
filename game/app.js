@@ -54,6 +54,8 @@ const ICON_PATHS = {
   trophy: '<path d="M8 4h8v6a4 4 0 0 1-8 0zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 14v4M8 20h8"/>',
   planet: '<circle cx="12" cy="12" r="6"/><path d="M7 15.5C4 17.5 2.5 19 3 20c.8 1.4 6-.7 11-4s8.300-7.300 7-8.700c-.6-.7-2.300-.2-4.300 1"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.500h2"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>',
 };
 const icon = name => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 
@@ -803,6 +805,7 @@ function home() {
         <button class="btn" id="parent">보호자 화면</button>
       </div>
       <p class="small mute" style="text-align:center">Duolingo와 관련 없는 개인 학습용 프로젝트입니다. <a style="color:inherit" href="credits.html">이미지 출처</a></p>
+      ${downloadLinksHtml()}
     </div>`);
   const mb = $("#mission");
   if (mb) { mb.onclick = runMission; mb.focus(); }
@@ -815,6 +818,7 @@ function home() {
   $("#sound").onclick = () => { S.settings.sound = !S.settings.sound; save(); home(); };
   $("#parent").onclick = parentView;
   appPanelWire();
+  downloadLinksWire();
 }
 const gameBtn = (id, ic, name, desc) => `<button class="game-btn" data-game="${id}"><span class="icon" aria-hidden="true">${icon(ic)}</span><strong>${name}</strong><span class="mute">${desc}</span></button>`;
 

@@ -67,6 +67,31 @@ async function downloadOffline() {
   if (button) button.disabled = false;
 }
 
+/* 첫 화면 맨 아래의 작은 내려받기 아이콘 */
+const PC_SETUP_URL = "https://github.com/supportyourinfluence-glitch/DET_Essential_Quiz/releases/download/v1.1.0/WordPlanet-Setup-1.1.0.exe";
+function downloadLinksHtml() {
+  if (!pwaSupported()) return "";   // PC 설치판에서는 필요 없다
+  return `<nav class="corner-links" aria-label="앱 내려받기">
+    ${isInstalledApp() ? "" : `<button class="corner-link" id="getApp" title="앱 다운로드" aria-label="앱 다운로드">${icon("phone")}</button>`}
+    <a class="corner-link" href="${PC_SETUP_URL}" title="PC 설치 파일 다운로드" aria-label="PC 설치 파일 다운로드">${icon("monitor")}</a>
+  </nav>`;
+}
+function downloadLinksWire() {
+  const b = document.getElementById("getApp");
+  if (!b) return;
+  b.onclick = async () => {
+    if (installEvent) {
+      installEvent.prompt();
+      await installEvent.userChoice;
+      installEvent = null;
+      return;
+    }
+    message("앱 다운로드", isIos()
+      ? "Safari에서 아래쪽 공유 버튼을 누른 뒤 '홈 화면에 추가'를 선택해 주세요."
+      : "브라우저 메뉴에서 '앱 설치' 또는 '홈 화면에 추가'를 선택해 주세요. 이미 설치했다면 설치된 앱을 열어 주세요.");
+  };
+}
+
 function appPanelHtml() {
   if (!pwaSupported()) return "";
   const ready = offlineDone();
