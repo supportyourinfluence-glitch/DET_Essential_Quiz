@@ -65,7 +65,7 @@ function today() { return addDays(dateStr(new Date()), dayOffset()); }
 function diffDays(a, b) { const p = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 86400000); }
 
 /* ---------- 저장 ---------- */
-const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {}, lost: 0, lostDay: {}, storySeen: false, exams: [] });
+const blank = () => ({ settings: { examDate: "", dailyNew: 25, sound: true }, words: {}, streak: 0, lastDay: "", log: {}, mission: null, boss: {}, flash: {}, lost: 0, lostBy: {}, lostDay: {}, storySeen: false, exams: [] });
 let S = load();
 function load() {
   try {
@@ -75,7 +75,8 @@ function load() {
   return blank();
 }
 let saveFailed = false;
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); saveFailed = false; } catch (e) { saveFailed = true; } }
+function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); saveFailed = false; } catch (e) { saveFailed = true; } }
+function save() { saveLocal(); syncSoon(); }
 
 /* ---------- 간격 반복 ---------- */
 const st = id => S.words[id];
@@ -205,7 +206,7 @@ function moneyStats(day) {
   const steps = list.reduce((n, w) => { const s = st(w.id); return n + (s && s.earn ? Object.keys(s.earn).length : 0); }, 0);
   const bosses = day ? (S.boss[day] ? 1 : 0) : Object.values(S.boss).filter(Boolean).length;
   const earned = steps * WON_STEP + bosses * WON_BOSS;
-  return { earned, balance: earned - (day ? 0 : S.lost), max: list.length * 3 * WON_STEP + (day ? 1 : 10) * WON_BOSS };
+  return { earned, balance: Math.max(0, earned - (day ? 0 : S.lost)), max: list.length * 3 * WON_STEP + (day ? 1 : 10) * WON_BOSS };
 }
 const fmtWon = n => n.toLocaleString("ko-KR") + "원";
 function reward(id, key) {
@@ -223,6 +224,9 @@ function penalize(id) {
   const amount = Math.min(WON_STEP, moneyStats().balance);
   if (!amount) return 0;
   S.lost += amount;
+  const device = deviceId();
+  S.lostBy = lostByOf({ ...S, lost: S.lost - amount });
+  S.lostBy[device] = (S.lostBy[device] || 0) + amount;
   moneyToast(-amount);
   return -amount;
 }
@@ -849,7 +853,7 @@ function startExam(pool) {
     runRound([...real, ...blank, ...listen], { exam: true, onDone: r => {
       const pct = r.total ? Math.round(r.right / r.total * 100) : 0;
       const best = Math.max(pct, ...S.exams.map(e => e.pct));
-      S.exams.push({ date: today(), right: r.right, total: r.total, pct, won: r.won });
+      S.exams.push({ at: Date.now(), date: today(), right: r.right, total: r.total, pct, won: r.won });
       if (S.exams.length > 50) S.exams.shift();
       save();
       r.note = `${S.exams.length}번째 기록을 저장했어요. 최고 기록 ${best}%`;
@@ -972,9 +976,10 @@ function parentView() {
         <h3>자주 틀린 단어</h3>
         ${weak.length ? weak.map(w => `<div class="row between small"><span class="en"><b>${esc(w.w)}</b> <span class="mute">${esc(w.m)}</span></span><span class="chip">틀림 ${st(w.id).wrong}</span></div>`).join("") : `<p class="mute small">아직 없습니다.</p>`}
       </div>
+      ${syncPanelHtml()}
       <div class="panel stack">
         <h3>기록 백업과 복원</h3>
-        <p class="small mute">기록은 이 브라우저에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 백업해 주세요.</p>
+        <p class="small mute">기록은 이 브라우저에 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 백업해 주세요.</p>
         <div class="row">
           <button class="btn" id="export">백업 파일 저장</button>
           <label class="btn" style="display:inline-flex;align-items:center">복원 파일 선택<input type="file" id="import" accept=".json,application/json" style="position:absolute;opacity:0;width:1px"></label>
@@ -989,6 +994,7 @@ function parentView() {
       </div>
     </div>`);
   $("#back").onclick = home;
+  syncPanelWire(parentView);
   const upd = () => { $("#calc").textContent = `앞으로 하루 새 단어: ${dailyNewCount()}개`; };
   $("#exam").onchange = e => { S.settings.examDate = e.target.value; save(); upd(); };
   $("#daily").onchange = e => { S.settings.dailyNew = Number(e.target.value); save(); upd(); };
@@ -1014,7 +1020,7 @@ function parentView() {
     } catch (err) { $("#ioMsg").textContent = "복원하지 못했어요. 이 게임에서 저장한 백업 파일인지 확인해 주세요."; }
   };
   $("#reset").onclick = () => {
-    if (confirm("모든 학습 기록을 지울까요? 되돌릴 수 없어요.") && confirm("정말 지울까요? 백업이 없다면 복구할 수 없어요.")) { S = blank(); save(); home(); }
+    if (confirm("모든 학습 기록을 지울까요? 되돌릴 수 없어요.") && confirm("정말 지울까요? 백업이 없다면 복구할 수 없어요.")) { syncDisconnect(); S = blank(); save(); home(); }
   };
 }
 
@@ -1092,13 +1098,13 @@ function backToHome() { if (location.hash) location.hash = ""; else home(); }
 function flashView(day, restart) {
   const list = WORDS.filter(w => w.day === day);
   const saved = S.flash[day] || { known: [], rounds: 1, missed: {}, ms: 0 };
-  if (restart || saved.known.length >= list.length) { saved.known = []; saved.rounds = 1; saved.missed = {}; saved.ms = 0; }
+  if (restart || saved.known.length >= list.length) { saved.known = []; saved.rounds = 1; saved.missed = {}; saved.ms = 0; saved.t = Date.now(); }
   S.flash[day] = saved;
   save();
   let queue = list.filter(w => !saved.known.includes(w.id));
   let i = 0, shown = false, t0 = Date.now();
 
-  function tick() { saved.ms += Date.now() - t0; t0 = Date.now(); }
+  function tick() { saved.ms += Date.now() - t0; t0 = Date.now(); saved.t = t0; }
   function preload() { const n = queue[i + 1]; if (n) new Image().src = "images/" + n.id + ".jpg"; }
   function draw() {
     const w = queue[i], c = credits()[w.id];
@@ -1244,3 +1250,4 @@ function route() {
 }
 window.addEventListener("hashchange", route);
 route();
+syncStart();

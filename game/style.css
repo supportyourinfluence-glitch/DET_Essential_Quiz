@@ -107,6 +107,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .stop-text { display: grid; gap: 1px; }
 .stop-now { color: var(--brand-lip); }
 .stop-flash { flex: none; text-decoration: none; display: inline-flex; align-items: center; font-size: 14px; padding: 6px 10px; min-height: 42px; }
+.sync-code { font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center; padding: 10px; border-radius: 10px; background: var(--soft); overflow-wrap: anywhere; }
 .story p { line-height: 1.65; }
 .rules { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--soft); text-align: left; }
 .story-note { padding: 10px 14px; border-radius: 12px; background: var(--brand-tint); color: var(--brand-lip); font-weight: 600; }
