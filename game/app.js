@@ -986,7 +986,7 @@ function flashView(day, restart) {
         <div class="progress" role="progressbar" aria-valuenow="${saved.known.length}" aria-valuemin="0" aria-valuemax="50"><i style="width:${saved.known.length / list.length * 100}%"></i></div>
         <span class="chip">알아요 ${saved.known.length}/${list.length}</span>
       </div>
-      <p class="mute small flash-sub">DAY ${day} · ${saved.rounds}바퀴째 · 이번 바퀴 ${i + 1}/${queue.length}장</p>
+      <p class="mute small flash-sub">DAY ${day} · ${saved.rounds}바퀴째 · 이번 바퀴 ${i + 1}/${queue.length}장 · <span id="flashStatus">${statusBadge(w)}</span></p>
       <article class="panel flash">
         <figure class="flash-img">
           <img src="images/${w.id}.jpg" alt="${esc(w.w)}를 나타내는 그림" onerror="this.parentNode.classList.add('none')">
@@ -1008,7 +1008,13 @@ function flashView(day, restart) {
     const saySentence = () => speak(sentence);
     const input = $("#typeIn");
     const touch = window.matchMedia && matchMedia("(pointer: coarse)").matches;
-    const wordTyper = makeTyper($("#tzWord"), typingText(w), say);
+    // 단어를 다 치면 직접 입력 단계를 통과한 것으로 기록한다
+    const wordTyper = makeTyper($("#tzWord"), typingText(w), () => {
+      say();
+      markSkill(intro(w.id), "type");
+      save();
+      $("#flashStatus").innerHTML = statusBadge(w);
+    });
     let sentTyper = null, active = wordTyper;
     const activate = (t, showKeyboard) => {
       active = t;
@@ -1039,6 +1045,7 @@ function flashView(day, restart) {
     };
     const rate = knew => {
       intro(w.id);
+      record(w.id, knew, knew ? "meaning" : null);
       if (knew) saved.known.push(w.id);
       else saved.missed[w.id] = (saved.missed[w.id] || 0) + 1;
       tick();
