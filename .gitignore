@@ -1,0 +1,10 @@
+# 책을 찍은 사진은 저장소에 올리지 않는다
+*.jpg
+!game/images/*.jpg
+*.jpeg
+*.png
+
+# 로컬 도구 설정
+.claude/
+__pycache__/
+*.pyc
