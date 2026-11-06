@@ -56,6 +56,11 @@ def check(days):
             if word.lower() in seen_real:
                 errors.append(f"{tag} {word}: {seen_real[word.lower()]}와 중복")
             seen_real[word.lower()] = tag
+    for day, rows in days.items():
+        for no in range(1, len(rows) + 1):
+            for kind in ("w", "s"):
+                if not (DATA.parent / "audio" / kind / f"{day}-{no}.mp3").is_file():
+                    errors.append(f"음성 파일 없음: {kind}/{day}-{no}.mp3")
     fakes = {}
     for day, rows in days.items():
         for row in rows:

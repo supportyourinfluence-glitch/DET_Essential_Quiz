@@ -190,13 +190,32 @@ function beep(ok) {
     o.start(); o.stop(audioCtx.currentTime + .23);
   } catch (e) { /* 효과음 실패는 학습에 지장 없음 */ }
 }
-function hasEnglishVoice() {
-  if (!("speechSynthesis" in window)) return false;
-  const v = speechSynthesis.getVoices();
-  return !v.length || v.some(x => /^en/i.test(x.lang));
+// 서버에 올린 음성 파일로 발음한다. 파일을 재생하지 못할 때만 기기의 음성 기능을 쓴다.
+let audioFiles = null, player = null;
+function audioFor(text) {
+  if (!audioFiles) {
+    audioFiles = new Map();
+    WORDS.forEach(w => {
+      audioFiles.set(spoken(w), "audio/w/" + w.id + ".mp3");
+      audioFiles.set(w.s.replace(/[{}]/g, ""), "audio/s/" + w.id + ".mp3");
+    });
+  }
+  return audioFiles.get(text);
 }
 function speak(text) {
-  if (!("speechSynthesis" in window)) return;
+  const src = audioFor(text);
+  if (!src) return speakDevice(text);
+  if ("speechSynthesis" in window && speechSynthesis.speaking) speechSynthesis.cancel();
+  player = player || new Audio();
+  player.pause();
+  player.onerror = () => speakDevice(text);
+  player.src = src;
+  const p = player.play();
+  // 페이지를 열자마자 나는 자동 재생 거부(NotAllowedError)와 다음 발음으로 넘어갈 때의 중단(AbortError)은 오류가 아니다
+  if (p) p.catch(e => { if (e.name !== "NotAllowedError" && e.name !== "AbortError") speakDevice(text); });
+}
+function speakDevice(text) {
+  if (!("speechSynthesis" in window)) return speechFailed();
   try {
     if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     speechSynthesis.resume();   // 일시 정지 상태로 멈춘 브라우저를 깨운다
@@ -206,7 +225,7 @@ function speak(text) {
     if (v) u.voice = v;
     // 페이지를 열자마자 나는 자동 재생 거부(not-allowed)와 다음 발음으로 넘어갈 때의 중단은 오류가 아니다
     u.onerror = e => { if (!["canceled", "interrupted", "not-allowed"].includes(e.error)) speechFailed(); };
-    speak.current = u;          // 재생 중 메모리에서 지워져 소리가 끊기는 것을 막는다
+    speakDevice.current = u;    // 재생 중 메모리에서 지워져 소리가 끊기는 것을 막는다
     speechSynthesis.speak(u);
   } catch (e) { speechFailed(); }
 }
@@ -216,7 +235,7 @@ function speechFailed() {
   n.id = "speechNotice";
   n.className = "speech-notice";
   n.setAttribute("role", "alert");
-  n.textContent = "발음을 재생하지 못했어요. 스피커나 이어폰이 연결되어 있는지 확인해 주세요. 그래도 안 되면 Edge나 Chrome으로 열어 보세요.";
+  n.textContent = "발음을 재생하지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.";
   document.body.appendChild(n);
   setTimeout(() => n.remove(), 6000);
 }
@@ -434,14 +453,10 @@ function runRound(questions, opts) {
 
   /* 듣고 쓰기 */
   function showListen(qq, w) {
-    const voice = hasEnglishVoice();
-    const showHint = !voice && !opts.exam;
     render(`${header()}<div class="panel">
       <p class="q-label">들리는 단어를 입력하세요 (↑ 키: 다시 듣기)</p>
       ${opts.exam ? `<div class="timer"><i></i></div>` : ""}
       <button class="sound" id="play" aria-label="다시 듣기">${icon("speaker")}</button>
-      ${!voice ? `<p class="notice">이 기기에서 영어 음성을 찾지 못했어요. 뜻과 첫 글자를 보고 입력하세요.</p>` : ""}
-      ${showHint || !voice ? `<p class="q-mean">${esc(w.m)} <span class="en">(${esc(spoken(w)[0])}…)</span></p>` : ""}
       <div class="answer-row">
         <input class="answer en" id="ans" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="들은 단어 입력">
         <button class="btn primary" id="submit">확인</button>
@@ -960,7 +975,6 @@ function flashView(day, restart) {
   save();
   let queue = list.filter(w => !saved.known.includes(w.id));
   let i = 0, shown = false, t0 = Date.now();
-  const hasUS = () => !("speechSynthesis" in window) ? false : !speechSynthesis.getVoices().length || speechSynthesis.getVoices().some(v => /^en-US/i.test(v.lang));
 
   function tick() { saved.ms += Date.now() - t0; t0 = Date.now(); }
   function preload() { const n = queue[i + 1]; if (n) new Image().src = "images/" + n.id + ".jpg"; }
@@ -987,8 +1001,7 @@ function flashView(day, restart) {
           <button class="btn good big" id="yes">알아요 (→)</button>
         </div>
         ${c ? `<p class="credit">사진: ${/^https?:\/\//i.test(c.page || "") ? `<a href="${esc(c.page)}" target="_blank" rel="noopener noreferrer">${esc(c.artist || c.title)}</a>` : esc(c.artist || c.title)} · ${esc(c.license)}</p>` : ""}
-      </article>
-      ${hasUS() ? "" : `<p class="notice" style="margin-top:12px">이 기기에서 미국식 영어 음성을 찾지 못했어요. 다른 영어 음성으로 읽을 수 있어요.</p>`}`);
+      </article>`);
     $("#back").onclick = () => { tick(); save(); backToHome(); };
     const say = () => speak(spoken(w));
     const sentence = w.s.replace(/[{}]/g, "");
